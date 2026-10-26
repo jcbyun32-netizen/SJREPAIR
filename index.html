@@ -211,7 +211,7 @@ function renderShoot(){
   $('app').innerHTML=`
   <div class="pg">
     <section class="card stat">
-      <div><div class="meta">작업자 ${esc(S.inspector)}</div><div class="sn">${esc(serial())}</div></div>
+      <div><div class="meta">작업자 ${esc(S.inspector)}</div><div style="display:flex;align-items:center;gap:.5rem"><div class="sn">${esc(serial())}</div><button style="font-size:.75rem;font-weight:700;padding:.3rem .55rem;border-radius:.5rem;background:var(--soft);color:var(--brand);flex:none" onclick="editSerial()">✏️ 수정</button></div></div>
       <div style="text-align:right"><div class="meta">지적 ${n} / ${MAX}건</div><div class="pn">${S.page+1} / ${last}</div></div>
     </section>
     <div class="ttl">${title}</div>
@@ -225,6 +225,26 @@ function renderShoot(){
   <input id="fCam" type="file" accept="image/*" capture="environment" hidden onchange="addFile(this)">
   <input id="fPick" type="file" accept="image/*" multiple hidden onchange="addFiles(this)">`;
   fitVp();
+}
+
+/* ---------- 촬영 중 시리얼 수정 ---------- */
+function editSerial(){
+  let pfx=S.prefix;
+  const d=document.createElement('div');d.className='ov';
+  d.innerHTML='<div class="dlg" style="display:block"><p style="margin-bottom:.75rem">시리얼 번호 수정</p><div id="esPf" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.75rem"></div><div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem"><span id="esPre" style="font-weight:800;white-space:nowrap"></span><input id="esRest" class="in" style="flex:1;min-width:0" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div><p id="esErr" class="err" style="display:none;margin:0 0 .5rem"></p><div style="display:flex;gap:.5rem"><button id="esC">취소</button><button id="esO" class="p">저장</button></div></div>';
+  document.body.appendChild(d);
+  const pf=d.querySelector('#esPf'),pre=d.querySelector('#esPre'),inp=d.querySelector('#esRest'),er=d.querySelector('#esErr');
+  const draw=()=>{pre.textContent=pfx+'-AEA';pf.innerHTML='';PREFIXES.forEach(o=>{const b=document.createElement('button');b.className='pf'+(o===pfx?' on':'');b.style.fontSize='1rem';b.textContent=o;b.onclick=()=>{pfx=o;draw()};pf.appendChild(b)})};
+  draw();inp.value=S.rest;
+  inp.oninput=()=>{inp.value=cleanRest(inp.value)};
+  d.querySelector('#esC').onclick=()=>d.remove();
+  d.querySelector('#esO').onclick=async()=>{
+    const r=inp.value.trim();
+    if(!r){er.textContent='AEA 뒤의 시리얼 숫자를 입력해 주세요.';er.style.display='';inp.focus();return}
+    if(!(await ask('S/N을 아래로 변경할까요?\n\n'+pfx+'-AEA'+r,'변경','다시 입력')))return;
+    S.prefix=pfx;S.rest=r;S.jobSerial=serial();save();d.remove();render();
+  };
+  setTimeout(()=>inp.focus(),50);
 }
 function go(d){S.page+=d;save();S.screen==='after'?renderAfter():renderShoot()}
 function setComment(v){const p=S.photos[S.page];if(p){p.comment=v;save()}}
@@ -314,7 +334,7 @@ function renderAfter(){
   $('app').innerHTML=`
   <div class="pg">
     <section class="card stat">
-      <div><div class="meta">작업자 ${esc(S.inspector)}</div><div class="sn">${esc(serial())}</div></div>
+      <div><div class="meta">작업자 ${esc(S.inspector)}</div><div style="display:flex;align-items:center;gap:.5rem"><div class="sn">${esc(serial())}</div><button style="font-size:.75rem;font-weight:700;padding:.3rem .55rem;border-radius:.5rem;background:var(--soft);color:var(--brand);flex:none" onclick="editSerial()">✏️ 수정</button></div></div>
       <div style="text-align:right"><div class="meta">완료 ${doneN()} / ${n}건</div><div class="pn">${S.page+1} / ${n}</div></div>
     </section>
     <div class="ttl"><div>② Repair 조치 후 사진 #${S.page+1}</div><div class="meta">지적: ${esc(p.comment||'(코멘트 없음)')}</div></div>
