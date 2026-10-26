@@ -100,6 +100,14 @@ h1{font-size:2.1rem;line-height:1.25;font-weight:800;margin:0 0 .5rem}
 .pr{display:grid;grid-template-columns:1fr 1fr;gap:.25rem}
 .pr img,.pr .nn{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:.5rem;display:block}
 .nn{display:flex;align-items:center;justify-content:center;background:var(--soft);color:var(--mute);font-size:.75rem}
+.vp2{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;background:none;border-radius:0;overflow:visible;align-items:stretch;justify-content:stretch}
+.vp2 .pane{position:relative;background:var(--soft);border-radius:.75rem;overflow:hidden;min-width:0;min-height:0}
+.vp2 .pane img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain}
+.pl{position:absolute;top:.35rem;left:.35rem;z-index:2;font-size:.75rem;font-weight:800;background:rgba(220,38,38,.9);color:#fff;padding:.15rem .55rem;border-radius:9999px}
+.pl.g{background:rgba(0,171,107,.92)}
+.vp2 .emp{padding:.5rem}
+.vp2 .emp>div:first-child{font-size:.9rem}
+.vp2 .cam{height:3.2rem;font-size:.9rem}
 </style>
 </head>
 <body>
@@ -175,7 +183,6 @@ function renderStart(){
       <input id="rest" class="in" style="flex:1;min-width:0" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="숫자 입력" value="${esc(S.rest)}" oninput="S.rest=cleanRest(this.value);this.value=S.rest;save()">
     </div>
     <button class="big red" onclick="startInspect()">Repair 대상 촬영 시작</button>
-    <button class="big" style="margin-top:.6rem" onclick="startAfter()">Repair 완료 촬영 시작</button>
     <p id="err" class="err" style="display:none"></p>
   </section>
   ${resume?`<section class="card">
@@ -192,14 +199,6 @@ async function startInspect(){
   if(!S.rest.trim()){e.textContent='AEA 뒤의 시리얼 숫자를 입력해 주세요.';e.style.display='';$('rest').focus();return}
   if(S.photos.length>0&&!(await ask('이전에 입력한 지적 사진 '+S.photos.length+'건(완료 '+doneN()+'건)이 있습니다.\n새로 시작하면 지워집니다. 계속할까요?','새로 시작')))return;
   S.photos=[];S.page=0;S.phase='before';S.jobSerial=serial();S.screen='shoot';save();render();window.scrollTo(0,0);
-}
-async function startAfter(){
-  const e=$('err'),bad=(m,id)=>{e.textContent=m;e.style.display='';if(id)$(id).focus()};
-  if(!S.inspector.trim())return bad('작업자 이름을 입력해 주세요.','insp');
-  if(!S.rest.trim())return bad('AEA 뒤의 시리얼 숫자를 입력해 주세요.','rest');
-  if(!S.photos.length)return bad('먼저 Repair 대상 촬영을 진행해 주세요. (저장된 지적 사진이 없습니다)');
-  if(S.jobSerial&&S.jobSerial!==serial())return bad('저장된 지적 사진은 '+S.jobSerial+' 입니다.\n시리얼이 다르면 Repair 대상 촬영부터 새로 시작해 주세요.');
-  S.phase='after';S.page=0;S.screen='after';save();render();window.scrollTo(0,0);
 }
 
 /* ---------- 2-1. 지적 사진 촬영 (페이지 넘김) ---------- */
@@ -221,7 +220,7 @@ function renderShoot(){
     ${p?`<div class="acts"><button class="mid" onclick="$('fCam').click()">📷 다시 촬영</button><button class="mid" onclick="$('fPick').click()">🖼 앨범 추가</button><button class="mid dl" onclick="removeCur()">삭제</button></div>
     <textarea id="cmt" class="ta" placeholder="지적 위치 / 내용 코멘트" oninput="setComment(this.value)">${esc(p.comment||'')}</textarea>`:''}
     <div class="foot"><div class="nav"><button class="mid" ${S.page===0?'disabled':''} onclick="go(-1)">◀ 이전</button><button class="mid" ${canNext?'':'disabled'} onclick="go(1)">다음 ▶</button></div>
-    <button class="big fin" ${n===0?'disabled':''} onclick="finishBefore()">지적 촬영 완료 (${n}건)</button></div>
+    <button class="big fin" ${n===0?'disabled':''} onclick="finishBefore()">촬영 완료 (${n}건)</button></div>
   </div>
   <input id="fCam" type="file" accept="image/*" capture="environment" hidden onchange="addFile(this)">
   <input id="fPick" type="file" accept="image/*" multiple hidden onchange="addFiles(this)">`;
@@ -294,15 +293,14 @@ async function removeCur(){
   S.photos.splice(S.page,1);
   save();renderShoot();
 }
-async function finishBefore(){
+function finishBefore(){
   if(!S.photos.length)return;
-  const now=await ask('지적 사진 '+S.photos.length+'건이 저장되었습니다.\n재작업이 끝났다면 완료 사진을 촬영하세요.','Repair 완료 촬영','나중에');
-  S.phase='after';S.page=0;S.screen=now?'after':'start';
+  S.phase='after';S.page=0;S.screen='after';
   save();render();window.scrollTo(0,0);
 }
 
 /* ---------- 2-2. 완료 사진 촬영 (지적 사진 1건당 완료 사진 1장) ---------- */
-function zoom(){
+function zoomUnused(){
   const p=S.photos[S.page];if(!p)return;
   const d=document.createElement('div');d.className='ov';d.style.padding='.75rem';
   d.innerHTML='<img alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:.5rem">';
@@ -319,9 +317,12 @@ function renderAfter(){
       <div><div class="meta">작업자 ${esc(S.inspector)}</div><div class="sn">${esc(serial())}</div></div>
       <div style="text-align:right"><div class="meta">완료 ${doneN()} / ${n}건</div><div class="pn">${S.page+1} / ${n}</div></div>
     </section>
-    <div class="ttl ref"><img class="rimg" src="${p.data}" alt="지적 사진" onclick="zoom()"><div><div>② 완료 사진 #${S.page+1}</div><div class="meta">지적: ${esc(p.comment||'(코멘트 없음)')}</div></div></div>
-    <div class="vp">${a?`<img src="${a.data}" alt="완료 사진 #${S.page+1}">`:`<div class="emp"><div>재작업 완료된 부분을<br>촬영해 주세요</div>
-      <div class="cbtns"><button class="cam" onclick="$('fCam').click()">📷 완료 사진 촬영</button><button class="cam alt" onclick="$('fPick').click()">🖼 앨범에서 선택</button></div></div>`}</div>
+    <div class="ttl"><div>② Repair 조치 후 사진 #${S.page+1}</div><div class="meta">지적: ${esc(p.comment||'(코멘트 없음)')}</div></div>
+    <div class="vp vp2">
+      <div class="pane"><div class="pl">지적 (Before)</div><img src="${p.data}" alt="지적 사진 #${S.page+1}"></div>
+      <div class="pane">${a?`<div class="pl g">조치 후 (After)</div><img src="${a.data}" alt="조치 후 사진 #${S.page+1}">`:`<div class="emp"><div>조치 후 사진을<br>촬영하거나 올려주세요</div>
+        <div class="cbtns"><button class="cam" onclick="$('fCam').click()">📷 촬영</button><button class="cam alt" onclick="$('fPick').click()">🖼 앨범</button></div></div>`}</div>
+    </div>
     ${a?`<div class="acts"><button class="mid" onclick="$('fCam').click()">📷 다시 촬영</button><button class="mid" onclick="$('fPick').click()">🖼 앨범</button><button class="mid dl" onclick="removeAfter()">삭제</button></div>`:''}
     <div class="foot"><div class="nav"><button class="mid" ${S.page===0?'disabled':''} onclick="go(-1)">◀ 이전</button><button class="mid" ${S.page>=n-1?'disabled':''} onclick="go(1)">다음 ▶</button></div>
     <button class="big fin" onclick="finishAfter()">완료 촬영 끝 · 엑셀 확인 (${doneN()}/${n})</button></div>
